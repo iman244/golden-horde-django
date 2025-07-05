@@ -1,0 +1,18 @@
+[MASTER]
+load-plugins=pylint_django
+django-settings-module=myproject.settings
+
+[TYPECHECK]
+generated-members=objects
+
+[MESSAGES CONTROL]
+disable=
+    fixme,
+    missing-docstring,
+    invalid-name,
+    no-self-use,
+    too-many-ancestors,
+    too-few-public-methods,
+    too-many-locals,
+    too-many-arguments,
+    line-too-long
