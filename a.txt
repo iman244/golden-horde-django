@@ -1,2 +1,0 @@
-daphne -e ssl:8000:privateKey=certs/key.pem:certKey=certs/cert.pem goldenhorde.asgi:application
-daphne -e ssl:8000:privateKey=certs/192.168.1.101-key.pem:certKey=certs/192.168.1.101.pem goldenhorde.asgi:application

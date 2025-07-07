@@ -1,6 +1,6 @@
 [MASTER]
 load-plugins=pylint_django
-django-settings-module=myproject.settings
+django-settings-module=goldenhorde.settings
 
 [TYPECHECK]
 generated-members=objects
@@ -15,4 +15,5 @@ disable=
     too-few-public-methods,
     too-many-locals,
     too-many-arguments,
-    line-too-long
+    line-too-long,
+    invalid-str-returned

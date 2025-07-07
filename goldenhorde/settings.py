@@ -11,26 +11,36 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import environ
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
+print("BASE_DIR", BASE_DIR)
+env = environ.Env()
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-#2_7k2-pi4*w8tu(b=_de9g_w2*7m08&j(x^y-$u6k7m$4e^1w'
+SECRET_KEY = env("SECRET_KEY", default='django-insecure-#2_7k2-pi4*w8tu(b=_de9g_w2*7m08&j(x^y-$u6k7m$4e^1w')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env("DEBUG", default="True")
 
-ALLOWED_HOSTS = ['192.168.1.101', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.1.101', '192.168.1.100', '192.168.1.78', 'goldenhorde.liara.run']
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'https://localhost:3000',
+    'http://192.168.1.100:3000',
+    'https://192.168.1.100:3000',
     'http://192.168.1.101:3000',
-    'https://192.168.1.101:3000'
+    'https://192.168.1.101:3000',
+    'http://192.168.1.78:3000',
+    'https://192.168.1.78:3000',
+
+    'https://goldenhorde.liara.run',
 ]
 
 # Application definition
@@ -78,7 +88,6 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'goldenhorde.wsgi.application'
 ASGI_APPLICATION = 'goldenhorde.asgi.application'
 
 CHANNEL_LAYERS = {
@@ -90,14 +99,24 @@ CHANNEL_LAYERS = {
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
+if env('USE_CLOUD_DB', default=False) == 'True':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': env('DB_NAME', default='postgres'),
+            'USER': env('DB_USER', default='postgres'),
+            'PASSWORD': env('DB_PASSWORD', default='postgres'),
+            'HOST': env('DB_HOST', default='localhost'),
+            'PORT': env('DB_PORT', default='5432'),
+        }
+    }
+else:
+    DATABASES = {
+        'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
-
-
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
