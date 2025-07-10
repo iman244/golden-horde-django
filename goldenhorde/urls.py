@@ -23,6 +23,7 @@ admin.site.site_title = _("Golden Horde")
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/membership/', include("membership.urls", namespace="membership")),
     path('api/hordes/', include("hordes.urls")),
     path('', admin.site.login),
 ]
