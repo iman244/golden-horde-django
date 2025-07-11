@@ -8,12 +8,15 @@ from django.core.cache import cache
 
 
 class TentEventsConsumer(AsyncWebsocketConsumer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.group_name = "tent_events"
+
     async def connect(self):
         user = self.scope.get("user")
         if not user or user.is_anonymous:
             await self.close()
             return
-        self.group_name = "tent_events"
         await self.channel_layer.group_add(
             self.group_name,
             self.channel_name

@@ -105,42 +105,14 @@ CHANNEL_LAYERS = {
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': env('DB_NAME', default='postgres'),
+        'NAME': env('DB_NAME', default='goldenhorde'),
         'USER': env('DB_USER', default='postgres'),
-        'PASSWORD': env('DB_PASSWORD', default='postgres'),
+        'PASSWORD': env('DB_PASSWORD', default='qwer123456'),
         'HOST': env('DB_HOST', default='localhost'),
         'PORT': env('DB_PORT', default='5432'),
     }
 }
 
-redis_url = env("REDIS_URL", default="redis://127.0.0.1:6379")
-cache_db_number = env("CACHE_DB_NUMBER", default="0")
-cache_redis_host = redis_url + "/" + cache_db_number
-print("CACHE_REDIS_HOST: ", cache_redis_host)
-
-# Cache settings
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": cache_redis_host,
-
-    }
-}
-CACHE_TTL = 3600 * 24
-
-
-channel_layers_db_number = env("CHANNEL_LAYERS_DB_NUMBER", default="1")
-channel_layers_redist_host = redis_url + "/" + channel_layers_db_number
-print("CHANNEL_LAYERS_REDIS_HOST: ", channel_layers_redist_host)
-
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [channel_layers_redist_host],
-        },
-    },
-}
 # else:
 #     DATABASES = {
 #         'default': {
@@ -205,3 +177,47 @@ EMAIL_PORT = env("EMAIL_PORT", default="EMAIL_PORT is not set")
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="EMAIL_HOST_USER is not set")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="EMAIL_HOST_PASSWORD is not set")
 EMAIL_USE_TLS = True
+
+ENVIRONMENT = env('ENVIRONMENT', default='development')
+
+if ENVIRONMENT == 'development':
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "unique-snowflake",
+        }
+    }
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer"
+        }
+    }
+else:
+    redis_url = env("REDIS_URL", default="redis://127.0.0.1:6379")
+    cache_db_number = env("CACHE_DB_NUMBER", default="0")
+    cache_redis_host = redis_url + "/" + cache_db_number
+    print("CACHE_REDIS_HOST: ", cache_redis_host)
+
+    # Cache settings
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": cache_redis_host,
+
+        }
+    }
+    CACHE_TTL = 3600 * 24
+
+
+    channel_layers_db_number = env("CHANNEL_LAYERS_DB_NUMBER", default="1")
+    channel_layers_redist_host = redis_url + "/" + channel_layers_db_number
+    print("CHANNEL_LAYERS_REDIS_HOST: ", channel_layers_redist_host)
+
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [channel_layers_redist_host],
+            },
+        },
+    }
