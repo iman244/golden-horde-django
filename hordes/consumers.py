@@ -1,48 +1,72 @@
 import json
-from asgiref.sync import async_to_sync
-from channels.generic.websocket import WebsocketConsumer
-from .models import Tent, TentParticipant
-from django.db import IntegrityError
+from channels.generic.websocket import AsyncWebsocketConsumer
 from collections import defaultdict
+from .models import Tent, TentParticipant
+from django.db import models
+from asgiref.sync import sync_to_async
+from django.core.cache import cache
 
 
-class TentEventsConsumer(WebsocketConsumer):
-    def connect(self):
+class TentEventsConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        user = self.scope.get("user")
+        if not user or user.is_anonymous:
+            await self.close()
+            return
         self.group_name = "tent_events"
-        async_to_sync(self.channel_layer.group_add)(
+        await self.channel_layer.group_add(
             self.group_name,
             self.channel_name
         )
-        self.accept()
+        await self.accept()
         # Send current users in all tents
         tent_users = defaultdict(list)
-        for participant in TentParticipant.objects.all():
-            tent_users[str(participant.tent_id)].append(participant.username)
-        self.send(text_data=json.dumps({
+        participants = await self.get_all_participants()
+        for participant in participants:
+            tent_users[str(participant["tent_id"])].append(participant["username"])
+        await self.send(text_data=json.dumps({
             "type": "current_tent_users",
             "tents": tent_users
         }))
 
-    def disconnect(self, close_code):
-        async_to_sync(self.channel_layer.group_discard)(
+    async def disconnect(self, close_code):
+        await self.channel_layer.group_discard(
             self.group_name,
             self.channel_name
         )
 
-    def tent_event(self, event):
+    async def tent_event(self, event):
         print("tent_event event[data]", event["data"])
-        self.send(text_data=json.dumps(event["data"]))
+        await self.send(text_data=json.dumps(event["data"]))
 
-    def receive(self, text_data):
+    async def receive(self, text_data):
         text_data_json = json.loads(text_data)
         # Handle ping from frontend
         if text_data_json.get("type") == "ping":
-            self.send(text_data=json.dumps({"type": "pong", "ts": text_data_json.get("ts")}))
+            await self.send(text_data=json.dumps({"type": "pong", "ts": text_data_json.get("ts")}))
             return
 
+    @staticmethod
+    async def get_all_participants():
+        @sync_to_async
+        def fetch():
+            return list(TentParticipant.objects.select_related('user').values('tent_id', 'user__username'))
+        participants = await fetch()
+        # Rename user__username to username for easier use
+        for p in participants:
+            p["username"] = p.pop("user__username")
+        return participants
 
-class VoiceChatConsumer(WebsocketConsumer):
-    def connect(self):
+
+class VoiceChatConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        user = self.scope.get("user")
+        if not user or user.is_anonymous:
+            await self.close()
+            return
+        username = user.username
+        # Register the user's channel name in cache (for 1 hour)
+        cache.set(f"ws_channel_{username}", self.channel_name)
         print(f"WebSocket connection attempt from {self.scope.get('client', 'unknown')}")
         print(f"Headers: {self.scope.get('headers', [])}")
         print(f"Path: {self.scope.get('path', 'unknown')}")
@@ -51,27 +75,23 @@ class VoiceChatConsumer(WebsocketConsumer):
         self.voice_chat_tent_id = f"voice_chat_{self.tent_id}"
         print(f"Connecting to tent: {self.tent_id}")
 
-        async_to_sync(self.channel_layer.group_add)(
+        await self.channel_layer.group_add(
             self.voice_chat_tent_id,
             self.channel_name
         )
 
-        username = self.channel_name
         # Fetch tent once and handle if it does not exist
-        try:
-            tent = Tent.objects.get(pk=self.tent_id)
-        except Tent.DoesNotExist:
-            self.close()
+        tent = await self.get_tent(self.tent_id)
+        if tent is None:
+            await self.close()
             return
-        # Create TentParticipant entry
-        TentParticipant.objects.get_or_create(tent=tent, username=username)
+        # Create TentParticipant entry using authenticated user
+        await self.create_tent_participant(tent, user)
 
-        self.accept()
+        await self.accept()
         # Get other users in the tent (excluding self)
-        other_users = list(
-            TentParticipant.objects.filter(tent=tent).exclude(username=username).values_list('username', flat=True)
-        )
-        self.send(text_data=json.dumps({
+        other_users = await self.get_other_users(tent, user)
+        await self.send(text_data=json.dumps({
             "type": "connect_info",
             "username": username,
             "other_users": other_users,
@@ -79,8 +99,7 @@ class VoiceChatConsumer(WebsocketConsumer):
         print("WebSocket connection accepted successfully")
         # Broadcast join event to tent_events group
 
-        print("it must ran")
-        async_to_sync(self.channel_layer.group_send)(
+        await self.channel_layer.group_send(
             "tent_events",
             {
                 "type": "tent_event",
@@ -91,53 +110,87 @@ class VoiceChatConsumer(WebsocketConsumer):
                 }
             }
         )
+        # Broadcast join event to the tent's own group
+        await self.channel_layer.group_send(
+            self.voice_chat_tent_id,
+            {
+                "type": "tent_event",
+                "data": {
+                    "type": "user_joined",
+                    "tent_id": self.tent_id,
+                    "username": username,
+                }
+            }
+        )
 
-    def disconnect(self, close_code):
+    async def disconnect(self, close_code):
         print(f"WebSocket disconnected with code: {close_code}")
-        async_to_sync(self.channel_layer.group_discard)(
+        # Remove the user's channel name from cache
+        user = self.scope.get("user")
+        if user and not user.is_anonymous:
+            cache.delete(f"ws_channel_{user.username}")
+        await self.channel_layer.group_discard(
             self.voice_chat_tent_id,
             self.channel_name
         )
         # Remove TentParticipant entry
-        try:
-            tent = Tent.objects.get(pk=self.tent_id)
-            TentParticipant.objects.filter(tent=tent, username=self.channel_name).delete()
-        except Tent.DoesNotExist:
-            pass
+        tent = await self.get_tent(self.tent_id)
+        if tent is not None:
+            await self.delete_tent_participant(tent, self.scope["user"])
         # Broadcast leave event to tent_events group
-        async_to_sync(self.channel_layer.group_send)(
+        await self.channel_layer.group_send(
             "tent_events",
             {
                 "type": "tent_event",
                 "data": {
                     "type": "user_left",
                     "tent_id": self.tent_id,
-                    "username": self.channel_name,
+                    "username": self.scope["user"].username,
+                }
+            }
+        )
+        # Broadcast leave event to the tent's own group
+        await self.channel_layer.group_send(
+            self.voice_chat_tent_id,
+            {
+                "type": "tent_event",
+                "data": {
+                    "type": "user_left",
+                    "tent_id": self.tent_id,
+                    "username": self.scope["user"].username,
                 }
             }
         )
 
-    def receive(self, text_data):
+    async def receive(self, text_data):
         text_data_json = json.loads(text_data)
         # Handle ping from frontend
         if text_data_json.get("type") == "ping":
-            self.send(text_data=json.dumps({"type": "pong", "ts": text_data_json.get("ts")}))
+            await self.send(text_data=json.dumps({"type": "pong", "ts": text_data_json.get("ts")}))
             return
+        
+        print("receive", text_data_json)
 
-        target_user = text_data_json.get("target_user")
-        if target_user:
-            # Send only to the target user (by username, which is channel_name for now)
-            async_to_sync(self.channel_layer.send)(
-                target_user,
-                {
-                    "type": "voice_chat_config",
-                    "data": text_data_json,
-                    "sender_channel": self.channel_name,
-                }
-            )
+        target_username = text_data_json.get("target_user")
+        print("checking the target_user", target_username)
+        if target_username:
+            print("we must send to target user")
+            # Look up the target user's channel name in cache
+            target_channel = cache.get(f"ws_channel_{target_username}")
+            if target_channel:
+                await self.channel_layer.send(
+                    target_channel,
+                    {
+                        "type": "voice_chat_config",
+                        "data": text_data_json,
+                        "sender_channel": self.channel_name,
+                    }
+                )
+            else:
+                print(f"User {target_username} is not connected.")
         else:
             # Send to group (all users in the room)
-            async_to_sync(self.channel_layer.group_send)(
+            await self.channel_layer.group_send(
                 self.voice_chat_tent_id,
                 {
                     "type": "voice_chat_config",
@@ -146,5 +199,40 @@ class VoiceChatConsumer(WebsocketConsumer):
                 }
             )
 
-    def voice_chat_config(self, event):
-        self.send(text_data=json.dumps(event["data"]))
+    async def voice_chat_config(self, event):
+        print("voice_chat_config", event["data"])
+        await self.send(text_data=json.dumps(event["data"]))
+
+    async def tent_event(self, event):
+        await self.send(text_data=json.dumps(event["data"]))
+
+    @staticmethod
+    async def get_tent(tent_id):
+        @sync_to_async
+        def fetch():
+            try:
+                return Tent.objects.get(pk=tent_id)
+            except Tent.DoesNotExist:
+                return None
+        return await fetch()
+
+    @staticmethod
+    async def create_tent_participant(tent, user):
+        @sync_to_async
+        def create():
+            TentParticipant.objects.get_or_create(tent=tent, user=user)
+        await create()
+
+    @staticmethod
+    async def delete_tent_participant(tent, user):
+        @sync_to_async
+        def delete():
+            TentParticipant.objects.filter(tent=tent, user=user).delete()
+        await delete()
+
+    @staticmethod
+    async def get_other_users(tent, user):
+        @sync_to_async
+        def fetch():
+            return list(TentParticipant.objects.filter(tent=tent).exclude(user=user).values_list('user__username', flat=True))
+        return await fetch()

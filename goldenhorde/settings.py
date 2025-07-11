@@ -113,8 +113,23 @@ DATABASES = {
     }
 }
 
-redis_url = env("REDIS_URL", default="0")
-channel_layers_db_number = env("CHANNEL_LAYERS_DB_NUMBER", default="0")
+redis_url = env("REDIS_URL", default="redis://127.0.0.1:6379")
+cache_db_number = env("CACHE_DB_NUMBER", default="0")
+cache_redis_host = redis_url + "/" + cache_db_number
+print("CACHE_REDIS_HOST: ", cache_redis_host)
+
+# Cache settings
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": cache_redis_host,
+
+    }
+}
+CACHE_TTL = 3600 * 24
+
+
+channel_layers_db_number = env("CHANNEL_LAYERS_DB_NUMBER", default="1")
 channel_layers_redist_host = redis_url + "/" + channel_layers_db_number
 print("CHANNEL_LAYERS_REDIS_HOST: ", channel_layers_redist_host)
 
@@ -185,8 +200,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = env("EMAIL_HOST")
-EMAIL_PORT = env("EMAIL_PORT")
-EMAIL_HOST_USER = env("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
+EMAIL_HOST = env("EMAIL_HOST", default="EMAIL_HOST is not set")
+EMAIL_PORT = env("EMAIL_PORT", default="EMAIL_PORT is not set")
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="EMAIL_HOST_USER is not set")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="EMAIL_HOST_PASSWORD is not set")
 EMAIL_USE_TLS = True

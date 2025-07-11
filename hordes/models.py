@@ -1,6 +1,6 @@
+from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
-from django.conf import settings
 
 
 class Horde(models.Model):
@@ -21,12 +21,11 @@ class Tent(models.Model):
 
 class TentParticipant(models.Model):
     tent = models.ForeignKey(Tent, on_delete=models.CASCADE, related_name="participants")
-    username = models.CharField(max_length=150)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name=_("user"), on_delete=models.CASCADE, related_name="joined_tent")
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ("tent", "username")
+        unique_together = ("tent", "user")
 
     def __str__(self):
-        return f"{self.username} in {self.tent.name}"
-
+        return f"{self.user.username} in {self.tent.name}"
