@@ -39,7 +39,6 @@ class TentEventsConsumer(AsyncWebsocketConsumer):
         )
 
     async def tent_event(self, event):
-        print("tent_event event[data]", event["data"])
         await self.send(text_data=json.dumps(event["data"]))
 
     async def receive(self, text_data):

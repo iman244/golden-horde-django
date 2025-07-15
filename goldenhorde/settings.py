@@ -10,9 +10,9 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 import environ
-import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,21 +24,37 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env("SECRET_KEY", default='django-insecure-#2_7k2-pi4*w8tu(b=_de9g_w2*7m08&j(x^y-$u6k7m$4e^1w')
+SECRET_KEY = env(
+    "SECRET_KEY", default='django-insecure-#2_7k2-pi4*w8tu(b=_de9g_w2*7m08&j(x^y-$u6k7m$4e^1w')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env("DEBUG", default="True")
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.1.101', '192.168.1.100', '192.168.1.78', 'goldenhorde.liara.run']
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+
+    '192.168.1.78',
+    '192.168.1.79',
+
+    '192.168.1.100',
+    '192.168.1.101',
+
+    'goldenhorde.liara.run']
+
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'https://localhost:3000',
+
+    'http://192.168.1.78:3000',
+    'https://192.168.1.78:3000',
+    'http://192.168.1.79:3000',
+    'https://192.168.1.79:3000',
+
     'http://192.168.1.100:3000',
     'https://192.168.1.100:3000',
     'http://192.168.1.101:3000',
     'https://192.168.1.101:3000',
-    'http://192.168.1.78:3000',
-    'https://192.168.1.78:3000',
 
     'https://goldenhorde.liara.run',
 ]
@@ -175,7 +191,8 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = env("EMAIL_HOST", default="EMAIL_HOST is not set")
 EMAIL_PORT = env("EMAIL_PORT", default="EMAIL_PORT is not set")
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="EMAIL_HOST_USER is not set")
-EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="EMAIL_HOST_PASSWORD is not set")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD",
+                          default="EMAIL_HOST_PASSWORD is not set")
 EMAIL_USE_TLS = True
 
 ENVIRONMENT = env('ENVIRONMENT', default='development')
@@ -207,7 +224,6 @@ else:
         }
     }
     CACHE_TTL = 3600 * 24
-
 
     channel_layers_db_number = env("CHANNEL_LAYERS_DB_NUMBER", default="1")
     channel_layers_redist_host = redis_url + "/" + channel_layers_db_number
