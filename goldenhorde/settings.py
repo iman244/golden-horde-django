@@ -40,7 +40,11 @@ ALLOWED_HOSTS = [
     '192.168.1.100',
     '192.168.1.101',
 
-    'goldenhorde.liara.run']
+    '194.60.231.201',
+
+    'golden-horde.ir',
+    'goldenhorde.liara.run',
+    ]
 
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
@@ -56,6 +60,12 @@ CORS_ALLOWED_ORIGINS = [
     'http://192.168.1.101:3000',
     'https://192.168.1.101:3000',
 
+    'http://194.60.231.201:3000',
+    'https://194.60.231.201:3000',
+
+    'http://golden-horde.ir',
+    'https://golden-horde.ir',
+    
     'https://goldenhorde.liara.run',
 ]
 
@@ -196,6 +206,10 @@ EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD",
 EMAIL_USE_TLS = True
 
 ENVIRONMENT = env('ENVIRONMENT', default='development')
+if ENVIRONMENT == 'production':
+    STATIC_URL = 'static/'
+    STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
 
 if ENVIRONMENT == 'development':
     CACHES = {
