@@ -22,7 +22,7 @@ COPY . .
 # ENV PYTHONUNBUFFERED=1
 
 # 7. Collect static files (uncomment STATIC_ROOT in settings.py for this to work)
-# RUN python manage.py collectstatic --noinput
+RUN python manage.py collectstatic --noinput
 
 # 8. Expose port (change if you use a different port)
 EXPOSE 8000
