@@ -50,6 +50,7 @@ ALLOWED_HOSTS = [
     '194.60.231.201',
 
     'golden-horde.ir',
+    'django.golden-horde.ir',
     'goldenhorde.liara.run',
     ]
 
