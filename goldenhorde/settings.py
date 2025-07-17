@@ -18,7 +18,14 @@ import environ
 BASE_DIR = Path(__file__).resolve().parent.parent
 print("BASE_DIR", BASE_DIR)
 env = environ.Env()
-environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
+
+
+print("DJANGO_ENV", os.environ.get("DJANGO_ENV"))
+
+# Only read .env file if DJANGO_ENV is not 'production'
+if os.environ.get("DJANGO_ENV", default="development") == "developement":
+    # This will load .env from BASE_DIR in development
+    environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
