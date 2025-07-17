@@ -20,6 +20,8 @@ COPY . .
 # 6. Set environment variables (optional, can also be set at runtime)
 # ENV DJANGO_SETTINGS_MODULE=goldenhorde.settings
 # ENV PYTHONUNBUFFERED=1
+ENV DJANGO_ENV=production
+ENV ENVIRONMENT=production
 
 # 7. Collect static files (uncomment STATIC_ROOT in settings.py for this to work)
 RUN python manage.py collectstatic --noinput
