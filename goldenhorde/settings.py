@@ -23,7 +23,7 @@ env = environ.Env()
 print("DJANGO_ENV", os.environ.get("DJANGO_ENV"))
 
 # Only read .env file if DJANGO_ENV is not 'production'
-if os.environ.get("DJANGO_ENV", default="development") == "developement":
+if os.environ.get("DJANGO_ENV", "development") == "development":
     # This will load .env from BASE_DIR in development
     environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
