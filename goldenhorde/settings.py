@@ -52,7 +52,7 @@ ALLOWED_HOSTS = [
     'golden-horde.ir',
     'django.golden-horde.ir',
     'goldenhorde.liara.run',
-    ]
+]
 
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
@@ -73,9 +73,11 @@ CORS_ALLOWED_ORIGINS = [
 
     'http://golden-horde.ir',
     'https://golden-horde.ir',
-    
+
     'https://goldenhorde.liara.run',
 ]
+
+CSRF_TRUSTED_ORIGINS = ["https://django.golden-horde.ir"]
 
 # Application definition
 
