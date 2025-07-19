@@ -222,6 +222,7 @@ if ENVIRONMENT == 'production':
 
 
 if ENVIRONMENT == 'development':
+# if False:
     CACHES = {
         "default": {
             "BACKEND": "django.core.cache.backends.locmem.LocMemCache",

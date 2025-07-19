@@ -126,7 +126,8 @@ class VoiceChatConsumer(AsyncWebsocketConsumer):
         )
 
     async def disconnect(self, close_code):
-        print(f"WebSocket disconnected with code: {close_code}")
+        print(f"WebSocket VoiceChatConsumer disconnected with code: {close_code}")
+        
         # Remove the user's channel name from cache
         user = self.scope.get("user")
         if user and not user.is_anonymous:
@@ -137,6 +138,7 @@ class VoiceChatConsumer(AsyncWebsocketConsumer):
         )
         # Remove TentParticipant entry
         tent = await self.get_tent(self.tent_id)
+        print("VoiceChatConsumer disconnect user tent", user.username, tent)
         if tent is not None:
             await self.delete_tent_participant(tent, self.scope["user"])
         # Broadcast leave event to tent_events group
@@ -166,19 +168,30 @@ class VoiceChatConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         text_data_json = json.loads(text_data)
+
         # Handle ping from frontend
         if text_data_json.get("type") == "ping":
+            print(f"ping from {self.scope["user"].username} from channel_name: {self.channel_name}")
             await self.send(text_data=json.dumps({"type": "pong", "ts": text_data_json.get("ts")}))
             return
         
         print("receive", text_data_json)
 
         target_username = text_data_json.get("target_user")
-        print("checking the target_user", target_username)
         if target_username:
-            print("we must send to target user")
+            # Check if target user is a participant in the tent
+            is_participant = await self.is_tent_participant(self.tent_id, target_username)
+            if not is_participant:
+                print(target_username, "was not participant")
+                await self.send(text_data=json.dumps({
+                    "type": "error",
+                    "target_user": target_username,
+                    "message": f"User {target_username} is not a participant in this tent."
+                }))
+                return
             # Look up the target user's channel name in cache
             target_channel = cache.get(f"ws_channel_{target_username}")
+            print("checking the target_channel for target_user", target_username, target_channel)
             if target_channel:
                 await self.channel_layer.send(
                     target_channel,
@@ -238,3 +251,12 @@ class VoiceChatConsumer(AsyncWebsocketConsumer):
         def fetch():
             return list(TentParticipant.objects.filter(tent=tent).exclude(user=user).values_list('user__username', flat=True))
         return await fetch()
+
+    @staticmethod
+    async def is_tent_participant(tent_id, username):
+        @sync_to_async
+        def check():
+            return TentParticipant.objects.filter(
+                tent__pk=tent_id, user__username=username
+            ).exists()
+        return await check()
