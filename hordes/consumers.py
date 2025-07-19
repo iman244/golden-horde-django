@@ -171,7 +171,7 @@ class VoiceChatConsumer(AsyncWebsocketConsumer):
 
         # Handle ping from frontend
         if text_data_json.get("type") == "ping":
-            print(f"ping from {self.scope["user"].username} from channel_name: {self.channel_name}")
+            print(f"ping from {self.scope['user'].username} from channel_name: {self.channel_name}")
             await self.send(text_data=json.dumps({"type": "pong", "ts": text_data_json.get("ts")}))
             return
         
