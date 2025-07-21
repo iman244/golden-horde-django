@@ -215,6 +215,10 @@ EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD",
                           default="EMAIL_HOST_PASSWORD is not set")
 EMAIL_USE_TLS = True
 
+# WebSocket Cache Configuration
+WS_CACHE_TTL = env.int('WS_CACHE_TTL', default=3600)  # 1 hour default
+WS_CACHE_EXTENDED_TTL = env.int('WS_CACHE_EXTENDED_TTL', default=86400)  # 24 hours for long connections
+
 ENVIRONMENT = env('ENVIRONMENT', default='development')
 if ENVIRONMENT == 'production':
     STATIC_URL = 'static/'
@@ -227,6 +231,10 @@ if ENVIRONMENT == 'development':
         "default": {
             "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
             "LOCATION": "unique-snowflake",
+            "TIMEOUT": 3600,  # 1 hour default timeout
+            "OPTIONS": {
+                "MAX_ENTRIES": 1000,  # Maximum number of entries in cache
+            }
         }
     }
     CHANNEL_LAYERS = {
@@ -245,7 +253,18 @@ else:
         "default": {
             "BACKEND": "django.core.cache.backends.redis.RedisCache",
             "LOCATION": cache_redis_host,
-
+            "TIMEOUT": 3600,  # 1 hour default timeout
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+                "CONNECTION_POOL_KWARGS": {
+                    "max_connections": 50,
+                    "retry_on_timeout": True,
+                },
+                "SOCKET_CONNECT_TIMEOUT": 5,  # 5 seconds
+                "SOCKET_TIMEOUT": 5,  # 5 seconds
+                "COMPRESSOR": "django_redis.compressors.zlib.ZlibCompressor",
+                "IGNORE_EXCEPTIONS": True,  # Don't crash if Redis is down
+            }
         }
     }
     CACHE_TTL = 3600 * 24
@@ -259,6 +278,14 @@ else:
             "BACKEND": "channels_redis.core.RedisChannelLayer",
             "CONFIG": {
                 "hosts": [channel_layers_redist_host],
+                "capacity": 1500,  # Maximum number of messages that can be in a channel layer
+                "expiry": 3600,  # Message expiry in seconds
+                "group_expiry": 86400,  # Group expiry in seconds (24 hours)
+                "channel_capacity": {
+                    "http.request": 100,
+                    "http.response!*": 100,
+                    "websocket.send!*": 100,
+                },
             },
         },
     }

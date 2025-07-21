@@ -1,10 +1,133 @@
+import logging
 import json
-from channels.generic.websocket import AsyncWebsocketConsumer
 from collections import defaultdict
-from .models import Tent, TentParticipant
-from django.db import models
 from asgiref.sync import sync_to_async
+from channels.generic.websocket import AsyncWebsocketConsumer
 from django.core.cache import cache
+from django.conf import settings
+from .models import Tent, TentParticipant
+
+logger = logging.getLogger(__name__)
+
+
+class CacheManager:
+    """Utility class for managing WebSocket user cache operations"""
+    
+    # Default TTL for WebSocket connections (can be extended)
+    DEFAULT_WS_TTL = getattr(settings, 'WS_CACHE_TTL', 3600)  # 1 hour default
+    # Extended TTL for long-running connections
+    EXTENDED_WS_TTL = getattr(settings, 'WS_CACHE_EXTENDED_TTL', 86400)  # 24 hours default
+    
+    @staticmethod
+    def get_user_channel_key(username):
+        """Generate cache key for user's WebSocket channel"""
+        return f"ws_channel_{username}"
+    
+    @staticmethod
+    def get_user_tent_key(username):
+        """Generate cache key for user's current tent"""
+        return f"ws_tent_{username}"
+    
+    @staticmethod
+    def set_user_channel(username, channel_name, timeout=None):
+        """Set user's WebSocket channel in cache"""
+        if timeout is None:
+            timeout = CacheManager.DEFAULT_WS_TTL
+            
+        try:
+            cache_key = CacheManager.get_user_channel_key(username)
+            cache.set(cache_key, channel_name, timeout=timeout)
+            logger.info(f"User {username} channel registered in cache: {channel_name} (TTL: {timeout}s)")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to set cache for user {username}: {e}")
+            return False
+    
+    @staticmethod
+    def get_user_channel(username):
+        """Get user's WebSocket channel from cache"""
+        try:
+            cache_key = CacheManager.get_user_channel_key(username)
+            return cache.get(cache_key)
+        except Exception as e:
+            logger.error(f"Failed to get cache for user {username}: {e}")
+            return None
+    
+    @staticmethod
+    def delete_user_channel(username):
+        """Delete user's WebSocket channel from cache"""
+        try:
+            cache_key = CacheManager.get_user_channel_key(username)
+            cache.delete(cache_key)
+            logger.info(f"User {username} channel removed from cache")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to delete cache for user {username}: {e}")
+            return False
+    
+    @staticmethod
+    def extend_user_channel_ttl(username, timeout=None):
+        """Extend the TTL for a user's channel cache entry"""
+        if timeout is None:
+            timeout = CacheManager.EXTENDED_WS_TTL
+            
+        try:
+            cache_key = CacheManager.get_user_channel_key(username)
+            current_value = cache.get(cache_key)
+            if current_value:
+                cache.set(cache_key, current_value, timeout=timeout)
+                logger.info(f"Extended TTL for user {username} channel to {timeout}s")
+                return True
+            else:
+                logger.warning(f"Cannot extend TTL for user {username}: channel not found in cache")
+                return False
+        except Exception as e:
+            logger.error(f"Failed to extend TTL for user {username}: {e}")
+            return False
+    
+    @staticmethod
+    def set_user_tent(username, tent_id, timeout=None):
+        """Set user's current tent in cache"""
+        if timeout is None:
+            timeout = CacheManager.DEFAULT_WS_TTL
+            
+        try:
+            cache_key = CacheManager.get_user_tent_key(username)
+            cache.set(cache_key, tent_id, timeout=timeout)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to set tent cache for user {username}: {e}")
+            return False
+    
+    @staticmethod
+    def get_user_tent(username):
+        """Get user's current tent from cache"""
+        try:
+            cache_key = CacheManager.get_user_tent_key(username)
+            return cache.get(cache_key)
+        except Exception as e:
+            logger.error(f"Failed to get tent cache for user {username}: {e}")
+            return None
+    
+    @staticmethod
+    def extend_user_tent_ttl(username, timeout=None):
+        """Extend the TTL for a user's tent cache entry"""
+        if timeout is None:
+            timeout = CacheManager.EXTENDED_WS_TTL
+            
+        try:
+            cache_key = CacheManager.get_user_tent_key(username)
+            current_value = cache.get(cache_key)
+            if current_value:
+                cache.set(cache_key, current_value, timeout=timeout)
+                logger.info(f"Extended TTL for user {username} tent to {timeout}s")
+                return True
+            else:
+                logger.warning(f"Cannot extend TTL for user {username}: tent not found in cache")
+                return False
+        except Exception as e:
+            logger.error(f"Failed to extend tent TTL for user {username}: {e}")
+            return False
 
 
 class TentEventsConsumer(AsyncWebsocketConsumer):
@@ -67,8 +190,10 @@ class VoiceChatConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
         username = user.username
-        # Register the user's channel name in cache (for 1 hour)
-        cache.set(f"ws_channel_{username}", self.channel_name)
+        
+        # Register the user's channel name in cache with extended TTL for long connections
+        CacheManager.set_user_channel(username, self.channel_name, timeout=CacheManager.EXTENDED_WS_TTL)
+        
         print(f"WebSocket connection attempt from {self.scope.get('client', 'unknown')}")
         print(f"Headers: {self.scope.get('headers', [])}")
         print(f"Path: {self.scope.get('path', 'unknown')}")
@@ -89,6 +214,9 @@ class VoiceChatConsumer(AsyncWebsocketConsumer):
             return
         # Create TentParticipant entry using authenticated user
         await self.create_tent_participant(tent, user)
+        
+        # Store user's current tent in cache with extended TTL
+        CacheManager.set_user_tent(username, self.tent_id, timeout=CacheManager.EXTENDED_WS_TTL)
 
         await self.accept()
         # Get other users in the tent (excluding self)
@@ -128,10 +256,13 @@ class VoiceChatConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close_code):
         print(f"WebSocket VoiceChatConsumer disconnected with code: {close_code}")
         
-        # Remove the user's channel name from cache
+        # Remove the user's channel name and tent from cache
         user = self.scope.get("user")
         if user and not user.is_anonymous:
-            cache.delete(f"ws_channel_{user.username}")
+            CacheManager.delete_user_channel(user.username)
+            # Also remove tent association
+            cache.delete(CacheManager.get_user_tent_key(user.username))
+        
         await self.channel_layer.group_discard(
             self.voice_chat_tent_id,
             self.channel_name
@@ -171,7 +302,13 @@ class VoiceChatConsumer(AsyncWebsocketConsumer):
 
         # Handle ping from frontend
         if text_data_json.get("type") == "ping":
-            print(f"ping from {self.scope['user'].username} from channel_name: {self.channel_name}")
+            username = self.scope['user'].username
+            print(f"ping from {username} from channel_name: {self.channel_name}")
+            
+            # Extend cache TTL on ping to support long-running connections
+            CacheManager.extend_user_channel_ttl(username)
+            CacheManager.extend_user_tent_ttl(username)
+            
             await self.send(text_data=json.dumps({"type": "pong", "ts": text_data_json.get("ts")}))
             return
         
@@ -190,7 +327,7 @@ class VoiceChatConsumer(AsyncWebsocketConsumer):
                 }))
                 return
             # Look up the target user's channel name in cache
-            target_channel = cache.get(f"ws_channel_{target_username}")
+            target_channel = CacheManager.get_user_channel(target_username)
             print("checking the target_channel for target_user", target_username, target_channel)
             if target_channel:
                 await self.channel_layer.send(
@@ -203,6 +340,11 @@ class VoiceChatConsumer(AsyncWebsocketConsumer):
                 )
             else:
                 print(f"User {target_username} is not connected.")
+                await self.send(text_data=json.dumps({
+                    "type": "error",
+                    "target_user": target_username,
+                    "message": f"User {target_username} is not currently connected."
+                }))
         else:
             # Send to group (all users in the room)
             await self.channel_layer.group_send(
