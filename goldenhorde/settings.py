@@ -254,11 +254,6 @@ else:
             "BACKEND": "django.core.cache.backends.redis.RedisCache",
             "LOCATION": cache_redis_host,
             "TIMEOUT": 3600,  # 1 hour default timeout
-            "OPTIONS": {
-                "SOCKET_CONNECT_TIMEOUT": 5,  # 5 seconds
-                "SOCKET_TIMEOUT": 5,  # 5 seconds
-                "IGNORE_EXCEPTIONS": True,  # Don't crash if Redis is down
-            }
         }
     }
     CACHE_TTL = 3600 * 24
