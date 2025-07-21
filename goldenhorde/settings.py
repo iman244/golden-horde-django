@@ -248,21 +248,15 @@ else:
     cache_redis_host = redis_url + "/" + cache_db_number
     print("CACHE_REDIS_HOST: ", cache_redis_host)
 
-    # Cache settings
+    # Minimal Redis cache settings
     CACHES = {
         "default": {
             "BACKEND": "django.core.cache.backends.redis.RedisCache",
             "LOCATION": cache_redis_host,
             "TIMEOUT": 3600,  # 1 hour default timeout
             "OPTIONS": {
-                "CLIENT_CLASS": "django_redis.client.DefaultClient",
-                "CONNECTION_POOL_KWARGS": {
-                    "max_connections": 50,
-                    "retry_on_timeout": True,
-                },
                 "SOCKET_CONNECT_TIMEOUT": 5,  # 5 seconds
                 "SOCKET_TIMEOUT": 5,  # 5 seconds
-                "COMPRESSOR": "django_redis.compressors.zlib.ZlibCompressor",
                 "IGNORE_EXCEPTIONS": True,  # Don't crash if Redis is down
             }
         }
