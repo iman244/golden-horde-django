@@ -37,45 +37,59 @@ print("SECRET_KEY", SECRET_KEY)
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env("DEBUG", default="True")
 
-ALLOWED_HOSTS = [
-    'localhost',
-    '127.0.0.1',
+ENVIRONMENT = env('ENVIRONMENT', default='development')
 
-    '192.168.1.78',
-    '192.168.1.79',
+if ENVIRONMENT == 'production':
+    ALLOWED_HOSTS = [
+        '194.60.231.201',
+        'golden-horde.ir',
+        'django.golden-horde.ir',
+        'goldenhorde.liara.run',
+    ]
+    CORS_ALLOWED_ORIGINS = [
+        # 'http://194.60.231.201:3000',
+        # 'http://golden-horde.ir',
+        'https://194.60.231.201:3000',
+        'https://golden-horde.ir',
+    ]
+else:
+    ALLOWED_HOSTS = ['*']
+    CORS_ALLOW_ALL_ORIGINS = True
 
-    '192.168.1.100',
-    '192.168.1.101',
+# ALLOWED_HOSTS = [
+#     'localhost',
+#     '127.0.0.1',
 
-    '194.60.231.201',
+#     '192.168.1.78',
+#     '192.168.1.79',
 
-    'golden-horde.ir',
-    'django.golden-horde.ir',
-    'goldenhorde.liara.run',
-]
+#     '192.168.1.100',
+#     '192.168.1.101',
+#     '192.168.1.102',
+# ]
 
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:3000',
-    'https://localhost:3000',
+# CORS_ALLOWED_ORIGINS = [
+#     'http://localhost:3000',
+#     'https://localhost:3000',
 
-    'http://192.168.1.78:3000',
-    'https://192.168.1.78:3000',
-    'http://192.168.1.79:3000',
-    'https://192.168.1.79:3000',
+#     'http://192.168.1.78:3000',
+#     'https://192.168.1.78:3000',
+#     'http://192.168.1.79:3000',
+#     'https://192.168.1.79:3000',
 
-    'http://192.168.1.100:3000',
-    'https://192.168.1.100:3000',
-    'http://192.168.1.101:3000',
-    'https://192.168.1.101:3000',
+#     'http://192.168.1.100:3000',
+#     'https://192.168.1.100:3000',
+#     'http://192.168.1.101:3000',
+#     'https://192.168.1.101:3000',
 
-    'http://194.60.231.201:3000',
-    'https://194.60.231.201:3000',
+#     'http://194.60.231.201:3000',
+#     'https://194.60.231.201:3000',
 
-    'http://golden-horde.ir',
-    'https://golden-horde.ir',
+#     'http://golden-horde.ir',
+#     'https://golden-horde.ir',
 
-    'https://goldenhorde.liara.run',
-]
+#     'https://goldenhorde.liara.run',
+# ]
 
 CSRF_TRUSTED_ORIGINS = ["https://django.golden-horde.ir"]
 
@@ -217,16 +231,17 @@ EMAIL_USE_TLS = True
 
 # WebSocket Cache Configuration
 WS_CACHE_TTL = env.int('WS_CACHE_TTL', default=3600)  # 1 hour default
-WS_CACHE_EXTENDED_TTL = env.int('WS_CACHE_EXTENDED_TTL', default=86400)  # 24 hours for long connections
+# 24 hours for long connections
+WS_CACHE_EXTENDED_TTL = env.int('WS_CACHE_EXTENDED_TTL', default=86400)
 
-ENVIRONMENT = env('ENVIRONMENT', default='development')
+
 if ENVIRONMENT == 'production':
     STATIC_URL = 'static/'
     STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 
 if ENVIRONMENT == 'development':
-# if False:
+    # if False:
     CACHES = {
         "default": {
             "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
